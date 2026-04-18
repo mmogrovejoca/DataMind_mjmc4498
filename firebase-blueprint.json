@@ -19,20 +19,17 @@
       "description": "Definition of a DQ rule assigned to a GCP asset.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
         "name": { "type": "string" },
         "dimension": { "type": "string", "enum": ["completeness", "consistency", "uniqueness", "validity", "accuracy", "timeliness"] },
-        "targetProject": { "type": "string" },
-        "targetDataset": { "type": "string" },
-        "targetTable": { "type": "string" },
-        "config": { "type": "object" },
-        "threshold": { "type": "number" },
-        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "tableId": { "type": "string" },
         "framework": { "type": "string" },
-        "createdBy": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "config": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "author": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "dimension", "targetProject", "targetDataset", "targetTable"]
+      "required": ["name", "dimension", "tableId", "status"]
     },
     "ScanResult": {
       "title": "DQ Scan Result",
@@ -58,7 +55,7 @@
       "schema": "User",
       "description": "User profiles and roles."
     },
-    "/rules/{ruleId}": {
+    "/dq_rules/{ruleId}": {
       "schema": "DQRule",
       "description": "Configured data quality rules."
     },

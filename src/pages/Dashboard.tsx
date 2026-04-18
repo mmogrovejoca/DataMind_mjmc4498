@@ -91,9 +91,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     const q = query(collection(db, 'dq_rules'), where('status', '==', 'active'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRuleCount(snapshot.size);
-    });
+    
+    // Using explicit error handler for onSnapshot
+    const unsubscribe = onSnapshot(
+      q, 
+      (snapshot) => {
+        setRuleCount(snapshot.size);
+      },
+      (error) => {
+        console.error("Firestore Snapshot Error [dq_rules]:", error);
+        // Fallback for UI if permission denied
+        if (error.code === 'permission-denied') {
+          setRuleCount(0);
+        }
+      }
+    );
+    
     return () => unsubscribe();
   }, []);
 

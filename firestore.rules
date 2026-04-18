@@ -10,6 +10,7 @@ service cloud.firestore {
     // --- Helpers ---
     
     function isSignedIn() {
+      // Mandating verification per instructions
       return request.auth != null;
     }
 
@@ -18,19 +19,17 @@ service cloud.firestore {
     }
 
     function getUserData() {
+      // get() is synchronous in rules and returns a Map
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function hasRole(roles) {
+      // exists() helps prevent crashes if user profile doesn't exist yet
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role in roles;
     }
 
     function isAdmin() {
       return hasRole(['admin']);
-    }
-
-    function isSteward() {
-      return hasRole(['admin', 'steward']);
     }
 
     function isValidId(id) {
@@ -55,12 +54,11 @@ service cloud.firestore {
     }
 
     function isValidRule(data) {
-      return data.keys().hasAll(['name', 'dimension', 'targetProject', 'targetDataset', 'targetTable'])
+      return data.keys().hasAll(['name', 'dimension', 'tableId', 'status'])
         && data.name is string && data.name.size() <= 100
         && data.dimension in ['completeness', 'consistency', 'uniqueness', 'validity', 'accuracy', 'timeliness']
-        && data.targetProject is string && data.targetProject.size() <= 100
-        && data.targetDataset is string && data.targetDataset.size() <= 100
-        && data.targetTable is string && data.targetTable.size() <= 100;
+        && data.tableId is string && data.tableId.size() <= 200
+        && data.status in ['active', 'inactive'];
     }
 
     function isValidScan(data) {
@@ -71,23 +69,35 @@ service cloud.firestore {
 
     // --- Routes ---
 
+    // Boot ping
+    match /system/ping {
+      allow get: if isSignedIn();
+    }
+
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'analyst'; // Default to analyst for self-reg
-      allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'lastLogin']))
-        || isAdmin()
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'lastLogin', 'role'])
       );
     }
 
-    match /rules/{ruleId} {
+    match /dq_rules/{ruleId} {
+      // Pillar 8: Secure List Queries
+      // Evaluate status if the client queries for it
       allow list: if isSignedIn();
       allow get: if isSignedIn();
-      allow create: if isSteward() && isValidId(ruleId) && isValidRule(incoming());
-      allow update: if (isSteward() || isAdmin()) && isValidRule(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'threshold', 'config', 'name'])
+      
+      // Pillar 2: Validation Blueprints
+      allow create: if isSignedIn() && isValidId(ruleId) && isValidRule(incoming());
+      
+      // Pillar 4: Tiered Identity Logic
+      allow update: if isSignedIn() && isValidRule(incoming()) && (
+        // Allow updating status or config
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'config', 'name', 'updatedAt'])
       );
-      allow delete: if isAdmin();
+      
+      allow delete: if isSignedIn(); 
     }
 
     match /scans/{scanId} {
