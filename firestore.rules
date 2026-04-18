@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(roles) {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role in roles;
+    }
+
+    function isAdmin() {
+      return hasRole(['admin']);
+    }
+
+    function isSteward() {
+      return hasRole(['admin', 'steward']);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validations ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) 
+        && data.uid == request.auth.uid
+        && data.role in ['admin', 'steward', 'analyst']
+        && data.email is string && data.email.size() <= 256;
+    }
+
+    function isValidRule(data) {
+      return data.keys().hasAll(['name', 'dimension', 'targetProject', 'targetDataset', 'targetTable'])
+        && data.name is string && data.name.size() <= 100
+        && data.dimension in ['completeness', 'consistency', 'uniqueness', 'validity', 'accuracy', 'timeliness']
+        && data.targetProject is string && data.targetProject.size() <= 100
+        && data.targetDataset is string && data.targetDataset.size() <= 100
+        && data.targetTable is string && data.targetTable.size() <= 100;
+    }
+
+    function isValidScan(data) {
+      return data.keys().hasAll(['ruleId', 'timestamp', 'score'])
+        && data.ruleId is string && data.ruleId.size() <= 128
+        && data.score is number && data.score >= 0 && data.score <= 100;
+    }
+
+    // --- Routes ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'analyst'; // Default to analyst for self-reg
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'lastLogin']))
+        || isAdmin()
+      );
+    }
+
+    match /rules/{ruleId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSteward() && isValidId(ruleId) && isValidRule(incoming());
+      allow update: if (isSteward() || isAdmin()) && isValidRule(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'threshold', 'config', 'name'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /scans/{scanId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(scanId) && isValidScan(incoming());
+      allow update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about the application users and their roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user (matching Firebase Auth UID)." },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "steward", "analyst"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "DQRule": {
+      "title": "Data Quality Rule",
+      "description": "Definition of a DQ rule assigned to a GCP asset.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "dimension": { "type": "string", "enum": ["completeness", "consistency", "uniqueness", "validity", "accuracy", "timeliness"] },
+        "targetProject": { "type": "string" },
+        "targetDataset": { "type": "string" },
+        "targetTable": { "type": "string" },
+        "config": { "type": "object" },
+        "threshold": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "framework": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "dimension", "targetProject", "targetDataset", "targetTable"]
+    },
+    "ScanResult": {
+      "title": "DQ Scan Result",
+      "description": "Outcome of a DQ scan execution.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ruleId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "passedCount": { "type": "number" },
+        "failedCount": { "type": "number" },
+        "totalCount": { "type": "number" },
+        "score": { "type": "number" },
+        "projectId": { "type": "string" },
+        "datasetId": { "type": "string" },
+        "tableId": { "type": "string" }
+      },
+      "required": ["ruleId", "timestamp", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles."
+    },
+    "/rules/{ruleId}": {
+      "schema": "DQRule",
+      "description": "Configured data quality rules."
+    },
+    "/scans/{scanId}": {
+      "schema": "ScanResult",
+      "description": "Historical results of DQ scans."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "DataMindDQ: Data Quality Governance",
+  "description": "Enterprise Data Quality management platform integrated with GCP (BigQuery, Dataplex) for automated monitoring, rule configuration, and governance compliance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
